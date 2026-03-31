@@ -11,7 +11,11 @@ import { stopsRouter } from './routes/stops.route';
 const app = new Hono();
 
 // Enable CORS for frontend integration
-app.use('/*', cors());
+app.use('/*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}));
 
 app.get('/health', (c) => {
   return c.json({ status: 'ok', message: 'Hono API is running flawlessly!' });
