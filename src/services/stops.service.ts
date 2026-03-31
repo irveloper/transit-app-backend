@@ -4,6 +4,7 @@ type SqlExecutor = Pick<typeof prisma, '$executeRaw' | '$queryRaw'>;
 
 // ─── Types for raw query results ────────────────────
 type StopRow = {
+  route_stop_id: string;
   stop_id: string;
   stop_name: string;
   stop_sequence: number;
@@ -107,6 +108,7 @@ async function syncRoutePathsForStop(db: SqlExecutor, stopId: string) {
 export const getStopsByDirection = async (directionId: string) => {
   return prisma.$queryRaw<StopRow[]>`
     SELECT
+      rs.id::text AS route_stop_id,
       s.id::text AS stop_id,
       s.stop_name,
       rs.stop_sequence,
@@ -269,7 +271,10 @@ export const removeStopFromDirection = async (stopId: string, directionId: strin
 };
 
 // ─── Reorder stops in a direction ────────────────────
-export const reorderStops = async (directionId: string, stopIds: string[]) => {
+export const reorderStops = async (
+  directionId: string,
+  routeStopIds: string[],
+) => {
   return prisma.$transaction(async (tx) => {
     // Step 1: Set all sequences to negative to avoid UNIQUE constraint
     await tx.$executeRaw`
@@ -279,13 +284,13 @@ export const reorderStops = async (directionId: string, stopIds: string[]) => {
     `;
 
     // Step 2: Assign new sequences based on the provided order
-    for (let i = 0; i < stopIds.length; i++) {
+    for (let i = 0; i < routeStopIds.length; i++) {
       const seq = i + 1;
       await tx.$executeRaw`
         UPDATE route_stops
         SET stop_sequence = ${seq}
         WHERE route_direction_id = ${directionId}::uuid
-          AND stop_id = ${stopIds[i]}::uuid;
+          AND id = ${routeStopIds[i]}::uuid;
       `;
     }
 

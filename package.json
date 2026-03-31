@@ -6,7 +6,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate",
+    "build": "prisma generate && prisma migrate deploy",
     "start": "NODE_ENV=production tsx src/index.ts"
   },
   "prisma": {
@@ -25,12 +25,12 @@
     "langchain": "^1.2.37",
     "openai": "^6.32.0",
     "pg": "^8.20.0",
+    "prisma": "^7.5.0",
     "tsx": "^4.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
-    "prisma": "^7.5.0",
     "typescript": "^6.0.2"
   },
   "pnpm": {
