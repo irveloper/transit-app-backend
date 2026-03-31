@@ -8,10 +8,20 @@ import {
   insertExistingStop,
 } from '../services/stops.service';
 
+const requireParam = (c: Context, name: string) => {
+  const value = c.req.param(name);
+
+  if (!value) {
+    throw new Error(`Missing required parameter: ${name}`);
+  }
+
+  return value;
+};
+
 // GET /api/stops/direction/:directionId
 export const handleGetStopsByDirection = async (c: Context) => {
   try {
-    const directionId = c.req.param('directionId');
+    const directionId = requireParam(c, 'directionId');
     const stops = await getStopsByDirection(directionId);
     return c.json({ success: true, data: stops });
   } catch (error: any) {
@@ -35,7 +45,7 @@ export const handleCreateStop = async (c: Context) => {
 // PUT /api/stops/:stopId
 export const handleUpdateStop = async (c: Context) => {
   try {
-    const stopId = c.req.param('stopId');
+    const stopId = requireParam(c, 'stopId');
     const body = c.req.valid('json' as never);
     const stop = await updateStop(stopId, body);
     return c.json({ success: true, data: stop });
@@ -48,8 +58,8 @@ export const handleUpdateStop = async (c: Context) => {
 // DELETE /api/stops/:stopId/direction/:directionId
 export const handleRemoveStop = async (c: Context) => {
   try {
-    const stopId = c.req.param('stopId');
-    const directionId = c.req.param('directionId');
+    const stopId = requireParam(c, 'stopId');
+    const directionId = requireParam(c, 'directionId');
     await removeStopFromDirection(stopId, directionId);
     return c.json({ success: true, data: null });
   } catch (error: any) {
@@ -61,7 +71,7 @@ export const handleRemoveStop = async (c: Context) => {
 // PUT /api/stops/direction/:directionId/reorder
 export const handleReorderStops = async (c: Context) => {
   try {
-    const directionId = c.req.param('directionId');
+    const directionId = requireParam(c, 'directionId');
     const { stopIds = [] } = c.req.valid('json' as never);
     await reorderStops(directionId, stopIds);
     return c.json({ success: true, data: null });
@@ -74,7 +84,7 @@ export const handleReorderStops = async (c: Context) => {
 // POST /api/stops/direction/:directionId/insert
 export const handleInsertExistingStop = async (c: Context) => {
   try {
-    const directionId = c.req.param('directionId');
+    const directionId = requireParam(c, 'directionId');
     const { stopId, sequence } = c.req.valid('json' as never);
     await insertExistingStop(directionId, stopId, sequence);
     return c.json({ success: true, data: null }, 201);

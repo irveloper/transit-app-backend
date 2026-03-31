@@ -2,9 +2,8 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { handlePredictDelay } from '../controllers/predict.controller';
-import { CloudflareBindings } from '../types/env.d';
 
-export const predictRouter = new Hono<{ Bindings: CloudflareBindings }>();
+export const predictRouter = new Hono();
 
 const predictSchema = z.object({
   time: z.string(),
