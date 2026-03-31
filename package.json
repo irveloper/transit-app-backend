@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "NODE_ENV=production tsx src/index.ts",
-    "lint": "biome lint .",
+    "lint": "biome lint . --error-on-warnings",
     "typecheck": "tsc --noEmit",
     "build": "prisma generate && pnpm run typecheck"
   },
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
     "@types/node": "^25.5.0",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.11.11",
     "typescript": "^6.0.2"
   },
   "pnpm": {

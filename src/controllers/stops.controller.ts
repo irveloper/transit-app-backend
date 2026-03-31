@@ -1,4 +1,4 @@
-import { Context } from 'hono';
+import type { Context } from 'hono';
 import {
   getStopsByDirection,
   createStopAndLink,
@@ -7,6 +7,7 @@ import {
   reorderStops,
   insertExistingStop,
 } from '../services/stops.service';
+import { getErrorMessage } from '../utils/errors';
 
 const requireParam = (c: Context, name: string) => {
   const value = c.req.param(name);
@@ -24,9 +25,9 @@ export const handleGetStopsByDirection = async (c: Context) => {
     const directionId = requireParam(c, 'directionId');
     const stops = await getStopsByDirection(directionId);
     return c.json({ success: true, data: stops });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get Stops Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -36,9 +37,9 @@ export const handleCreateStop = async (c: Context) => {
     const body = c.req.valid('json' as never);
     const stop = await createStopAndLink(body);
     return c.json({ success: true, data: stop }, 201);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Create Stop Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -49,9 +50,9 @@ export const handleUpdateStop = async (c: Context) => {
     const body = c.req.valid('json' as never);
     const stop = await updateStop(stopId, body);
     return c.json({ success: true, data: stop });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update Stop Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -62,9 +63,9 @@ export const handleRemoveStop = async (c: Context) => {
     const directionId = requireParam(c, 'directionId');
     await removeStopFromDirection(stopId, directionId);
     return c.json({ success: true, data: null });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Remove Stop Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -75,9 +76,9 @@ export const handleReorderStops = async (c: Context) => {
     const { stopIds = [] } = c.req.valid('json' as never);
     await reorderStops(directionId, stopIds);
     return c.json({ success: true, data: null });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Reorder Stops Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -88,8 +89,8 @@ export const handleInsertExistingStop = async (c: Context) => {
     const { stopId, sequence } = c.req.valid('json' as never);
     await insertExistingStop(directionId, stopId, sequence);
     return c.json({ success: true, data: null }, 201);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Insert Stop Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };

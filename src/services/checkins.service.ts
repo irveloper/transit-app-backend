@@ -90,7 +90,7 @@ export const createCheckIn = async (input: CreateCheckInInput) => {
     CROSS JOIN stop_match sm;
   `;
 
-  if (!proximityCheck || !proximityCheck.is_near) {
+  if (!proximityCheck?.is_near) {
     console.warn('Check-in rejected by proximity validation', {
       routeId: input.route_id,
       lat: input.lat,
