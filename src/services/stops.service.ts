@@ -28,6 +28,11 @@ type CoordinateRow = {
   lng: number;
 };
 
+type RouteStopIdentifierRow = {
+  route_stop_id: string;
+  stop_id: string;
+};
+
 function buildLinestringWkt(coordinates: CoordinateRow[]) {
   if (coordinates.length < 2) {
     return null;
@@ -276,6 +281,36 @@ export const reorderStops = async (
   routeStopIds: string[],
 ) => {
   return prisma.$transaction(async (tx) => {
+    const routeStops = await tx.$queryRaw<RouteStopIdentifierRow[]>`
+      SELECT
+        id::text AS route_stop_id,
+        stop_id::text AS stop_id
+      FROM route_stops
+      WHERE route_direction_id = ${directionId}::uuid
+      ORDER BY stop_sequence ASC;
+    `;
+
+    const routeStopIdsToUpdate = routeStopIds.map((identifier) => {
+      const match = routeStops.find(
+        (routeStop: RouteStopIdentifierRow) =>
+          routeStop.route_stop_id === identifier ||
+          routeStop.stop_id === identifier,
+      );
+
+      if (!match) {
+        throw new Error(`Stop ${identifier} does not belong to this direction`);
+      }
+
+      return match.route_stop_id;
+    });
+
+    if (
+      routeStopIdsToUpdate.length !== routeStops.length ||
+      new Set(routeStopIdsToUpdate).size !== routeStops.length
+    ) {
+      throw new Error("Reorder payload does not match the stops in this direction");
+    }
+
     // Step 1: Set all sequences to negative to avoid UNIQUE constraint
     await tx.$executeRaw`
       UPDATE route_stops
@@ -284,13 +319,13 @@ export const reorderStops = async (
     `;
 
     // Step 2: Assign new sequences based on the provided order
-    for (let i = 0; i < routeStopIds.length; i++) {
+    for (let i = 0; i < routeStopIdsToUpdate.length; i++) {
       const seq = i + 1;
       await tx.$executeRaw`
         UPDATE route_stops
         SET stop_sequence = ${seq}
         WHERE route_direction_id = ${directionId}::uuid
-          AND id = ${routeStopIds[i]}::uuid;
+          AND id = ${routeStopIdsToUpdate[i]}::uuid;
       `;
     }
 

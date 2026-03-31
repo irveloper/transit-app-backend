@@ -26,9 +26,20 @@ const updateStopSchema = z.object({
   lng: z.number().optional(),
 });
 
-const reorderSchema = z.object({
-  routeStopIds: z.array(z.string().uuid()),
-});
+const reorderIdsSchema = z.array(z.string().uuid());
+
+const reorderSchema = z
+  .object({
+    stopIds: reorderIdsSchema.optional(),
+    routeStopIds: reorderIdsSchema.optional(),
+  })
+  .refine((value) => value.stopIds || value.routeStopIds, {
+    message: 'Either stopIds or routeStopIds is required',
+    path: ['stopIds'],
+  })
+  .transform((value) => ({
+    stopIds: value.stopIds ?? value.routeStopIds ?? [],
+  }));
 
 const insertSchema = z.object({
   stopId: z.string().uuid(),
