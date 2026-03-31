@@ -38,6 +38,9 @@
     "typescript": "^6.0.2"
   },
   "pnpm": {
+    "overrides": {
+      "@types/pg": "8.11.11"
+    },
     "onlyBuiltDependencies": [
       "prisma"
     ]
