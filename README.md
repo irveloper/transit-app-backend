@@ -19,7 +19,6 @@ API REST de [Public Transit App](https://github.com/irveloper/transit-app-backen
 | [Hono](https://hono.dev/) | Framework HTTP ultra-ligero |
 | [Prisma](https://www.prisma.io/) 7 | ORM con soporte PostGIS |
 | [PostgreSQL](https://www.postgresql.org/) + [PostGIS](https://postgis.net/) | Base de datos con extension geoespacial |
-| [Supabase](https://supabase.com/) | Hosting de PostgreSQL y realtime |
 | [LangChain](https://js.langchain.com/) + OpenAI | Prediccion inteligente de retrasos |
 | [Zod](https://zod.dev/) | Validacion de schemas |
 | [tsx](https://tsx.is/) | Runtime TypeScript |
@@ -44,7 +43,6 @@ src/
   index.ts              # Entry point, Hono app + rutas
   config/
     db.ts               # Conexion Prisma + PostgreSQL
-    supabase.ts         # Cliente Supabase
   controllers/          # Logica de request/response
     checkins.controller.ts
     predict.controller.ts
@@ -73,7 +71,7 @@ pnpm install
 
 # Variables de entorno
 cp .env.example .env
-# Configurar DATABASE_URL, SUPABASE_*, OPENAI_API_KEY
+# Configurar DATABASE_URL, AI_API_KEY
 
 # Generar cliente Prisma
 pnpm build
