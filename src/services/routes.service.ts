@@ -60,6 +60,8 @@ type CheckInEtaRow = {
   created_at: Date;
   lat: number;
   lng: number;
+  is_on_board: boolean;
+  status: string;
 };
 
 type DirectionStop = {
@@ -75,7 +77,10 @@ type AssignedCheckIn = {
   createdAt: Date;
   directionId: string;
   sequence: number;
+  distanceMeters: number;
 };
+
+type TransitPresenceState = 'onboard' | 'waiting';
 
 export type ArrivalEstimateResult = {
   available: boolean;
@@ -158,6 +163,37 @@ function getForwardStopDistance(
   return null;
 }
 
+function normalizeText(value: string | null | undefined) {
+  return value
+    ?.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase() ?? '';
+}
+
+function inferTransitPresenceState(checkIn: Pick<CheckInEtaRow, 'is_on_board' | 'status'>): TransitPresenceState {
+  const normalizedStatus = normalizeText(checkIn.status);
+
+  if (
+    normalizedStatus.includes('esperando') ||
+    normalizedStatus.includes('waiting')
+  ) {
+    return 'waiting';
+  }
+
+  if (
+    normalizedStatus.includes('en el camion') ||
+    normalizedStatus.includes('en camion') ||
+    normalizedStatus.includes('at bus') ||
+    normalizedStatus.includes('on board') ||
+    normalizedStatus.includes('onboard')
+  ) {
+    return 'onboard';
+  }
+
+  return checkIn.is_on_board ? 'onboard' : 'waiting';
+}
+
 function assignCheckInsToDirections(
   checkIns: CheckInEtaRow[],
   directionStops: Map<string, DirectionStop[]>
@@ -199,6 +235,7 @@ function assignCheckInsToDirections(
       createdAt: checkIn.created_at,
       directionId: bestAssignment.directionId,
       sequence: bestAssignment.sequence,
+      distanceMeters: bestAssignment.distanceMeters,
     });
   }
 
@@ -596,23 +633,51 @@ export const getArrivalEstimate = async (
 
   const selectedTarget = targetStopSelection;
 
-  const recentOnboardCheckIns = await prisma.$queryRaw<CheckInEtaRow[]>`
+  const recentCheckIns = await prisma.$queryRaw<CheckInEtaRow[]>`
     SELECT
       ci.id::text,
       ci.created_at,
       ST_Y(ci.location::geometry) AS lat,
-      ST_X(ci.location::geometry) AS lng
+      ST_X(ci.location::geometry) AS lng,
+      ci.is_on_board,
+      ci.status
     FROM check_ins ci
     WHERE ci.route_id = ${routeId}::uuid
-      AND ci.is_on_board = true
       AND ci.created_at >= NOW() - INTERVAL '45 minutes'
     ORDER BY ci.created_at ASC;
   `;
 
-  const assignedCheckIns = assignCheckInsToDirections(recentOnboardCheckIns, directionStops);
-  const targetDirectionCheckIns = assignedCheckIns
+  const recentOnboardCheckIns = recentCheckIns.filter(
+    (checkIn) => inferTransitPresenceState(checkIn) === 'onboard'
+  );
+  const recentWaitingCheckIns = recentCheckIns.filter(
+    (checkIn) => inferTransitPresenceState(checkIn) === 'waiting'
+  );
+
+  const assignedOnboardCheckIns = assignCheckInsToDirections(recentOnboardCheckIns, directionStops);
+  const assignedWaitingCheckIns = assignCheckInsToDirections(recentWaitingCheckIns, directionStops);
+
+  const targetDirectionCheckIns = assignedOnboardCheckIns
     .filter((checkIn) => checkIn.directionId === selectedTarget.direction.id)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const now = Date.now();
+  const waitingCheckInsNearTarget = assignedWaitingCheckIns.filter((checkIn) => {
+    if (checkIn.directionId !== selectedTarget.direction.id) {
+      return false;
+    }
+
+    if (checkIn.distanceMeters > 250) {
+      return false;
+    }
+
+    const ageMinutes = (now - checkIn.createdAt.getTime()) / 60000;
+    if (ageMinutes > 20) {
+      return false;
+    }
+
+    const stopGap = Math.abs(checkIn.sequence - selectedTarget.stop.sequence);
+    return stopGap <= 1;
+  });
 
   const totalStopsForDirection = Math.max(selectedTarget.direction.total_stops, 2);
   const scheduledMinutesPerStop =
@@ -654,7 +719,6 @@ export const getArrivalEstimate = async (
     ? clamp(observedMedian, scheduledMinutesPerStop * 0.5, scheduledMinutesPerStop * 2.5)
     : scheduledMinutesPerStop;
 
-  const now = Date.now();
   const etaCandidates = targetDirectionCheckIns
     .map((checkIn) => {
       const remainingStops = getForwardStopDistance(
@@ -686,11 +750,20 @@ export const getArrivalEstimate = async (
       available: false,
       routeName: route.route_name,
       etaMinutes: null,
-      confidence: observedMedian ? 'medium' : 'low',
+      confidence:
+        waitingCheckInsNearTarget.length > 0
+          ? observedMedian || targetDirectionCheckIns.length > 0
+            ? 'medium'
+            : 'low'
+          : observedMedian
+            ? 'medium'
+            : 'low',
       reason:
         targetDirectionCheckIns.length > 0
           ? 'Hay reportes recientes, pero ninguno permite proyectar un próximo paso por tu parada.'
-          : 'Todavía no hay suficientes reportes recientes a bordo para estimar la próxima llegada.',
+          : waitingCheckInsNearTarget.length > 0
+            ? 'Hay personas esperando cerca de esta parada, pero todavía no hay suficientes reportes recientes en el camión para estimar la próxima llegada.'
+            : 'Todavía no hay suficientes reportes recientes a bordo para estimar la próxima llegada.',
       targetStop: {
         stopId: selectedTarget.stop.stop_id,
         stopName: selectedTarget.stop.stop_name,
@@ -706,9 +779,13 @@ export const getArrivalEstimate = async (
   const selectedCandidate = etaCandidates[0];
   const roundedEtaMinutes = Math.max(0, Math.round(selectedCandidate.etaMinutes));
   const confidence: ArrivalEstimateResult['confidence'] =
-    observedMinutesPerStopSamples.length >= 2 || targetDirectionCheckIns.length >= 3
+    observedMinutesPerStopSamples.length >= 2 ||
+    targetDirectionCheckIns.length >= 3 ||
+    (targetDirectionCheckIns.length >= 2 && waitingCheckInsNearTarget.length >= 1)
       ? 'high'
-      : observedMinutesPerStopSamples.length >= 1 || targetDirectionCheckIns.length >= 2
+      : observedMinutesPerStopSamples.length >= 1 ||
+          targetDirectionCheckIns.length >= 2 ||
+          waitingCheckInsNearTarget.length >= 1
         ? 'medium'
         : 'low';
 
@@ -719,8 +796,12 @@ export const getArrivalEstimate = async (
     confidence,
     reason:
       observedMedian
-        ? 'Estimación calculada con reportes recientes a bordo y avance observado entre paradas.'
-        : 'Estimación calculada con el último reporte a bordo y la duración promedio registrada de la ruta.',
+        ? waitingCheckInsNearTarget.length > 0
+          ? 'Estimación calculada con reportes recientes en el camión, personas esperando cerca de tu parada y avance observado entre paradas.'
+          : 'Estimación calculada con reportes recientes a bordo y avance observado entre paradas.'
+        : waitingCheckInsNearTarget.length > 0
+          ? 'Estimación calculada con reportes recientes en el camión, personas esperando cerca de tu parada y la duración promedio registrada de la ruta.'
+          : 'Estimación calculada con el último reporte a bordo y la duración promedio registrada de la ruta.',
     targetStop: {
       stopId: selectedTarget.stop.stop_id,
       stopName: selectedTarget.stop.stop_name,
