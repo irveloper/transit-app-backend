@@ -27,7 +27,7 @@ const updateStopSchema = z.object({
 });
 
 const reorderSchema = z.object({
-  stopIds: z.array(z.string().uuid()),
+  routeStopIds: z.array(z.string().uuid()),
 });
 
 const insertSchema = z.object({
