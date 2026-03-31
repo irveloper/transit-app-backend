@@ -22,7 +22,7 @@ app.route('/api/predict', predictRouter);
 app.route('/api/routes', routesRouter);
 app.route('/api/stops', stopsRouter);
 
-const port = 8787;
+const port = Number(process.env.PORT) || 8787;
 console.log(`Server is running on port ${port}`);
 
 serve({
