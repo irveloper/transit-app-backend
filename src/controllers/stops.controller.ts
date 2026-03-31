@@ -62,8 +62,8 @@ export const handleRemoveStop = async (c: Context) => {
 export const handleReorderStops = async (c: Context) => {
   try {
     const directionId = c.req.param('directionId');
-    const { routeStopIds } = c.req.valid('json' as never);
-    await reorderStops(directionId, routeStopIds);
+    const { stopIds = [] } = c.req.valid('json' as never);
+    await reorderStops(directionId, stopIds);
     return c.json({ success: true, data: null });
   } catch (error: any) {
     console.error('Reorder Stops Error:', error);
