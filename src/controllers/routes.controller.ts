@@ -1,4 +1,4 @@
-import { Context } from 'hono';
+import type { Context } from 'hono';
 import {
   findConnectingRoutes,
   findNearbyRoutes,
@@ -6,15 +6,16 @@ import {
   getArrivalEstimate,
   getRouteDetail,
 } from '../services/routes.service';
+import { getErrorMessage } from '../utils/errors';
 
 // GET /api/routes — list all routes (summary)
 export const handleListRoutes = async (c: Context) => {
   try {
     const routes = await getAllRoutes();
     return c.json({ success: true, data: routes });
-  } catch (error: any) {
+  } catch (error) {
     console.error('List Routes Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -34,9 +35,9 @@ export const handleGetRouteDetail = async (c: Context) => {
     }
 
     return c.json({ success: true, data: route });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Route Detail Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -57,7 +58,7 @@ export const handleGetArrivalEstimate = async (c: Context) => {
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
 
-    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
       return c.json({ error: 'lat and lng must be valid numbers.' }, 400);
     }
 
@@ -68,9 +69,9 @@ export const handleGetArrivalEstimate = async (c: Context) => {
     }
 
     return c.json({ success: true, data: estimate });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Arrival Estimate Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -86,15 +87,15 @@ export const handleFindNearbyRoutes = async (c: Context) => {
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
 
-    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
       return c.json({ error: 'lat and lng must be valid numbers.' }, 400);
     }
 
     const routes = await findNearbyRoutes(parsedLat, parsedLng);
     return c.json({ success: true, data: routes });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Nearby Routes Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -114,15 +115,20 @@ export const handleGetJourneyRoutes = async (c: Context) => {
       destLng: parseFloat(destLng),
     };
 
-    if (isNaN(input.originLat) || isNaN(input.originLng) || isNaN(input.destLat) || isNaN(input.destLng)) {
+    if (
+      Number.isNaN(input.originLat) ||
+      Number.isNaN(input.originLng) ||
+      Number.isNaN(input.destLat) ||
+      Number.isNaN(input.destLng)
+    ) {
       return c.json({ error: 'Coordinate parameters must be valid numbers.' }, 400);
     }
 
     const routes = await findConnectingRoutes(input);
 
     return c.json({ success: true, data: routes });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Journey Routes Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };

@@ -1,5 +1,6 @@
-import { Context } from 'hono';
+import type { Context } from 'hono';
 import { createCheckIn, getRecentCheckIns } from '../services/checkins.service';
+import { getErrorMessage } from '../utils/errors';
 
 // POST /api/check-ins — create a new check-in
 export const handleCreateCheckIn = async (c: Context) => {
@@ -12,9 +13,9 @@ export const handleCreateCheckIn = async (c: Context) => {
     }
 
     return c.json({ success: true, data: result.data }, 201);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Create Check-in Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
 
@@ -29,8 +30,8 @@ export const handleGetRecentCheckIns = async (c: Context) => {
 
     const checkIns = await getRecentCheckIns(routeId);
     return c.json({ success: true, data: checkIns });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Recent Check-ins Error:', error);
-    return c.json({ success: false, error: error.message || 'Internal Server Error' }, 500);
+    return c.json({ success: false, error: getErrorMessage(error) }, 500);
   }
 };
