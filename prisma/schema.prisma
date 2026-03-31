@@ -1,0 +1,74 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [postgis]
+}
+
+model operators {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   // e.g. "IMOVEQROO"
+  full_name String   // "Instituto de Movilidad de Quintana Roo"
+  website   String?
+  routes    routes[]
+}
+
+model routes {
+  id              String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  route_name      String                                // "R15"
+  route_long_name String                                @default("") // "Hoteles 95-96"
+  route_type      String                                @default("circular") // circular, linear
+  color           String?                               // hex color for map display
+  fare_amount     Decimal?                              @db.Decimal(6, 2)
+  fare_currency   String                                @default("MXN")
+  operator_id     String                                @db.Uuid
+  operator        operators                             @relation(fields: [operator_id], references: [id])
+  path            Unsupported("geography(LINESTRING)")?
+  directions      route_directions[]
+  check_ins       check_ins[]
+}
+
+model stops {
+  id          String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stop_name   String                            // "Boulevard Kukulcan, 7"
+  location    Unsupported("geography(POINT)")?
+  route_stops route_stops[]
+}
+
+model route_directions {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  route_id        String        @db.Uuid
+  route           routes        @relation(fields: [route_id], references: [id])
+  direction_name  String        // headsign, e.g. "Hoteles 95-96"
+  direction_index Int           @default(0) // 0=outbound, 1=inbound
+  total_stops     Int
+  approx_duration Int           // trip duration in minutes
+  start_time      String        // "06:00"
+  end_time        String        // "22:30"
+  operates_on     String        @default("all") // "all", "weekdays", "weekends"
+  route_stops     route_stops[]
+}
+
+model route_stops {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  route_direction_id String           @db.Uuid
+  route_direction    route_directions @relation(fields: [route_direction_id], references: [id])
+  stop_id            String           @db.Uuid
+  stop               stops            @relation(fields: [stop_id], references: [id])
+  stop_sequence      Int              // order within this direction
+
+  @@unique([route_direction_id, stop_sequence])
+}
+
+model check_ins {
+  id          BigInt                            @id @default(autoincrement())
+  created_at  DateTime                          @default(now())
+  location    Unsupported("geography(POINT)")?
+  is_on_board Boolean
+  status      String
+  route_id    String?                           @db.Uuid
+  route       routes?                           @relation(fields: [route_id], references: [id])
+}
