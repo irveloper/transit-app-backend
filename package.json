@@ -6,7 +6,6 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
     "start": "NODE_ENV=production tsx src/index.ts"
   },
   "prisma": {
