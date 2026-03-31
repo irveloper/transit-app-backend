@@ -1,6 +1,9 @@
 {
   "name": "transit-backend-app",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
